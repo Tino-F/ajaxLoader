@@ -1,12 +1,25 @@
 class AjaxLoader {
 
-  addPage ( activator, contentURL, complete ) {
+  addPage ( activator, contentURL, options ) {
+    //options: fadeOutStart fadeOutEnd fadeInStart fadeInEnd/complete error
 
-    if ( !complete ) { complete = () => false };
+    let defaultFunc = dom => false;
 
-    this.Pages.push({ activator: activator, url: contentURL, complete: complete });
+    options.fadeOutStart = options.fadeOutStart || defaultFunc;
+    options.fadeOutEnd = options.fadeOutEnd || defaultFunc;
+    options.fadeInStart = options.fadeInStart || defaultFunc;
+    options.complete = options.complete || defaultFunc;
+    options.error = options.error || defaultFunc;
+    options.click = options.click || defaultFunc;
+    options.progress = options.progress || defaultFunc;
 
-    document.getElementById( activator ).addEventListener( 'click', ( e ) => {
+    this.Pages.push({ activator: activator, url: contentURL, options: options });
+
+    let dom = document.getElementById( activator );
+
+    dom.addEventListener( 'click', ( e ) => {
+
+      options.click( dom );
 
       let xhttp = this.newXhttp();
 
@@ -16,7 +29,7 @@ class AjaxLoader {
         xhttp.onload = ( e ) => {
 
           if ( e.lengthComputable ) {
-            this.progress( e.loaded / e.total * 100 );
+            options.progress( dom, e.loaded / e.total * 100 );
           }
 
         };
@@ -25,14 +38,11 @@ class AjaxLoader {
 
           if ( xhttp.readyState === 4 ) {
 
-            this.complete( xhttp.response );
-
             if ( xhttp.status === 200 ) {
 
               this.killfade();
               this.container.innerHTML = xhttp.response;
-              complete();
-              this.fadeIn();
+              this.fadeIn( options.fadeInStart( dom ), options.complete( dom ) );
               this.preLoaded[ activator ] = xhttp.response;
 
             } else {
@@ -40,8 +50,7 @@ class AjaxLoader {
 
               this.killfade();
               this.container.innerHTML = this.errorMessage;
-              complete();
-              this.fadeIn();
+              this.fadeIn( options.fadeInStart( dom ), options.complete( dom ) );
 
             }
 
@@ -51,8 +60,9 @@ class AjaxLoader {
 
         xhttp.open( 'GET', contentURL );
 
-        this.fadeOut(() => {
+        this.fadeOut( options.fadeOutStart( dom ), () => {
 
+          options.fadeOutEnd( dom );
           this.container.innerHTML = this.loadingContent;
           this.container.style.opacity = 1;
           xhttp.send();
@@ -64,8 +74,7 @@ class AjaxLoader {
 
         this.killfade();
         this.container.innerHTML = this.preLoaded[ activator ];
-        complete();
-        this.fadeIn();
+        this.fadeIn( options.fadeInStart( dom ), options.complete( dom ) );
 
       }
 
@@ -121,11 +130,14 @@ class AjaxLoader {
 
   }
 
-  fadeIn ( cb ) {
+  fadeIn ( start, end ) {
 
-    if ( !cb ) { cb = () => false; };
+    if ( !start ) { start = () => false; };
+    if ( !end ) { end = () => false; };
 
     if ( !this.fade_int ) {
+
+      start();
 
       this.container.style.opacity = 0;
 
@@ -137,7 +149,7 @@ class AjaxLoader {
 
         } else {
 
-          cb();
+          end();
           this.container.style.opacity = 1;
           clearInterval( fade_int );
           this.fade_int = false;
@@ -150,11 +162,14 @@ class AjaxLoader {
 
   }
 
-  fadeOut ( cb ) {
+  fadeOut ( start, end ) {
 
-    if ( !cb ) { cb = () => false; };
+    if ( !start ) { start = () => false; };
+    if ( !end ) { end = () => false; };
 
     if ( !this.fade_int ) {
+
+      start();
 
       this.container.style.opacity = 1;
 
@@ -166,7 +181,7 @@ class AjaxLoader {
 
         } else {
 
-          cb();
+          end();
           this.container.style.opacity = 0;
           clearInterval( this.fade_int );
           this.fade_int = false;

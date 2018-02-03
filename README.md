@@ -5,4 +5,7 @@
 
 ### Usage
 
-  let loader = new AjaxLoader( { target: '#content-container' } );
+    let loader = new AjaxLoader( { target: 'content-container' } );
+    loader.addPage( 'about', '/ajax/about', function() {
+      console.log('Complete')
+    });
