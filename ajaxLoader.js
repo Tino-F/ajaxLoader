@@ -14,10 +14,13 @@ class AjaxLoader {
     options.progress = options.progress || defaultFunc;
 
     this.Pages.push({ activator: activator, url: contentURL, options: options });
+    this.Nav[ activator ] = true;
 
     let dom = document.getElementById( activator );
 
     dom.addEventListener( 'click', ( e ) => {
+
+      e.preventDefault();
 
       options.click( dom );
 
@@ -40,6 +43,7 @@ class AjaxLoader {
 
             if ( xhttp.status === 200 ) {
 
+              window.location.hash = activator;
               this.killfade();
               this.container.innerHTML = xhttp.response;
               this.fadeIn( options.fadeInStart( dom ), options.complete( dom ) );
@@ -73,6 +77,7 @@ class AjaxLoader {
         //content has been loaded and stored for reuse
 
         this.killfade();
+        window.location.hash = activator;
         this.container.innerHTML = this.preLoaded[ activator ];
         this.fadeIn( options.fadeInStart( dom ), options.complete( dom ) );
 
@@ -95,6 +100,7 @@ class AjaxLoader {
 
         this.fadeOut(() => {
 
+          window.location.hash = '';
           options.complete();
 
         });
@@ -194,6 +200,119 @@ class AjaxLoader {
 
   }
 
+  addVideo ( url, type ) {
+
+    this.videoURLs.push({url: url, type: type, total: false, progress: false, complete: false});
+
+  }
+
+  init ( options ) {
+
+    //Load Videos
+
+    let defaultFunc = () => false;
+
+    if ( !options ) {
+      options = {};
+    }
+
+    options.progress = options.progress || defaultFunc;
+    options.complete = options.complete || defaultFunc;
+
+    let i = 0;
+    let videoProgress = () => {
+
+      let total = 0;
+      let loaded = 0;
+      let valid = true;
+      let complete = 0;
+
+      this.videoURLs.forEach( video => {
+
+        if ( video.total ) {
+          total += video.total;
+        } else {
+          valid = false;
+        }
+
+        if ( video.progress ) {
+          loaded += video.progress;
+        } else {
+          valid = false;
+        }
+
+        if ( video.complete ) {
+          complete += 1;
+        }
+
+      });
+
+      if ( complete === this.videoURLs.length ) {
+
+        options.complete();
+
+        //Load Content from URL
+
+        this.Pages.forEach( page => {
+          if ( ('#' + page.activator) == window.location.hash ) {
+
+            let d = document.getElementById( page.activator );
+            let click = document.createEvent('Events');
+            click.initEvent('click', true, false);
+            d.dispatchEvent(click);
+
+          }
+        });
+
+      } else {
+
+        if ( valid ) {
+
+          options.progress( loaded / total * 100 );
+
+        }
+
+      }
+
+    };
+
+    this.videoURLs.forEach( video => {
+
+      let xhr = this.newXhttp();
+      xhr.open( 'GET', video.url );
+      xhr.responseType = 'arraybuffer';
+
+      xhr.onload = () => {
+
+        this.video.push( URL.createObjectURL( new Blob( [xhr.response], {type: video.type} ) ) );
+        video.complete = true;
+        videoProgress();
+
+      }
+
+      xhr.onprogress = function(e) {
+          if (e.lengthComputable) {
+
+            if ( !video.total ) {
+
+              video.total = e.total;
+
+            }
+
+            video.progress = e.loaded;
+
+            videoProgress();
+
+          }
+      };
+
+      xhr.send();
+      console.log('Begin loading', video.url );
+
+    });
+
+  }
+
   constructor ( options ) {
 
     this.container = document.getElementById( options.target );
@@ -205,7 +324,10 @@ class AjaxLoader {
     this.loadingContent = 'Loading...';
     this.preLoaded = {};
     this.Pages = [];
+    this.Nav = [];
     this.fade_int = false;
+    this.video = [];
+    this.videoURLs = [];
 
   }
 
